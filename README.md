@@ -1,37 +1,182 @@
-# T-REX
-T-REX (T-ALL RNA Expression classifier) is a machine learning-based tool that assigns molecular T-ALL subtypes using bulk RNA sequencing data.  
+# T-REX (T-ALL RNA Expression Classifier)
 
-Project Overview
-This tool implements a dual-stream pipeline for the molecular classification of T-cell Acute Lymphoblastic Leukemia (T-ALL)for both predictive accuracy and visual interpretability:
+**T-REX** is a machine learning-based tool designed to assign molecular **T-cell Acute Lymphoblastic Leukemia (T-ALL)** subtypes using bulk RNA sequencing data.
 
-* **Inference Stream: Optimized for speed and direct clinical application using gene-specific scaling.** For classification, raw counts are filtered for the 300-gene panel and then standardized using the training cohort's Z-score parameters (means and SDs). This ensures that the **XGBoost** model receives data in the exact distribution it was trained on, maintaining high sensitivity for subtype identification.
+---
 
-* **Visualization Stream: Utilizes Variance Stabilizing Transformation (VST) to provide high-fidelity clustering and sample-to-cohort comparisons.** For **t-SNE** and **UMAP** projections, data undergoes **Variance Stabilizing Transformation (VST)** via `DESeq2`. This step is crucial for visual analysis as it removes the heteroscedasticity typical of RNA-Seq data (the mean-variance trend), allowing for a clear biological clustering of subtypes without the noise of low-count genes.
+# Project Overview
 
-By decoupling these processes, the tool provides a high-performance classifier while offering a "gold-standard" visual validation of where each new sample sits within the T-ALL landscape.
+T-REX implements a dual-stream pipeline for the molecular classification of T-ALL, balancing predictive accuracy with high-fidelity visual interpretability.
 
-Technical Workflow
-1. Classification & Inference
-The core classifier is built on an XGBoost architecture.
+## Inference Stream
 
-Feature Selection: 300-gene signature proposed by Pölönen et al. 2024.
+Optimized for speed and direct clinical application using gene-specific scaling.
 
-Preprocessing: New samples undergo automated alignment, missing gene imputation (set to 0), and Z-score normalization using the training cohort's stored means and standard deviations.
+For classification:
 
-Output: Generates a probability distribution across 18 subtypes and a final PDF report.
+- Raw counts are filtered for the **300-gene panel**.
+- Gene expression is standardized using the training cohort's **Z-score parameters** (means and standard deviations).
+- The processed data are then supplied to the **XGBoost** classifier using the same feature distribution employed during model training.
 
-2. High-Fidelity Visualization
-To validate the model's predictions, the pipeline includes a visual QC module:
+This approach maintains high sensitivity for molecular subtype identification.
 
-Normalization: Employs DESeq2::vst to stabilize variance across the transcriptome.
+## Visualization Stream
 
-Clustering: Executes t-SNE (T-distributed Stochastic Neighbor Embedding) to project the new sample against the reference cohort, identifying its position relative to known molecular clusters.
+The visualization workflow uses **t-distributed Stochastic Neighbor Embedding (t-SNE)** on normalized expression data to project new samples alongside the reference cohort.
 
-Performance & Deliverables
-Model: XGBoost trained via caret with 5-fold cross-validation.
+This provides:
 
-Metrics: Full Confusion Matrix and F1-score analysis by subtype are available in the evaluation scripts.
+- High-fidelity visual clustering.
+- Intuitive comparison between new samples and reference cases.
+- Visual validation of subtype assignment.
 
-Reporting: Automatic generation of a summary table (T_ALL_classifier.pdf) containing prediction probabilities for each class.
+By decoupling prediction and visualization, T-REX provides both a high-performance classifier and a "gold-standard" visual representation of each sample within the T-ALL molecular landscape.
 
-Note: Due to the manuscript being under review at Leukemia (Nature Portfolio), raw data is withheld. The repository includes the trained .rds model and the inference scripts required to process local count matrices.
+---
+
+# Running Modes
+
+## Single-Sample Mode (`/single`)
+
+### Purpose
+
+Fast classification of individual samples.
+
+### Best for
+
+- Real-time analysis.
+- Single-patient clinical cases.
+
+### Workflow
+
+Processes count matrices one sample at a time to produce:
+
+- Molecular subtype prediction.
+- Quality-control visualization.
+
+---
+
+## Batch & Uncertainty Mode (`/flag&batch`)
+
+### Purpose
+
+Cohort-level classification with prediction reliability estimation.
+
+### Best for
+
+- Research cohorts.
+- Large datasets.
+- Analyses where confidence estimation is important.
+
+### Workflow
+
+Processes multiple samples simultaneously and computes uncertainty metrics to:
+
+- Flag ambiguous predictions.
+- Detect potential outliers.
+- Identify samples requiring additional validation.
+
+---
+
+# Input Data Requirements
+
+Before running the pipeline, ensure that the appropriate `input/` directory (inside either `single/` or `flag&batch/`) contains the following files.
+
+| File | Description |
+|------|-------------|
+| `counts_new.xlsx` | User count matrix containing the samples to classify. |
+| `Polonen_299_genes_new.txt` | Target gene signature list. |
+| `T_ALL_labels_full_cohort_total_ordered.xlsx` | Reference cohort subtype annotations and metadata. |
+| `data_counts_new` | Reference cohort count matrix (download required). |
+
+---
+
+# Required External Download
+
+The reference expression dataset (`data_counts_new`) is hosted on **Synapse** due to file size limitations.
+
+Please download the bulk RNA-seq count matrix from the official repository:
+
+> **Pölönen et al. Synapse Repository**  
+> Synapse ID: **syn54032669**
+
+---
+
+# Technical Workflow
+
+## Classification & Inference
+
+### Machine Learning Model
+
+- **Algorithm:** XGBoost
+- **Training framework:** `caret`
+- **Validation:** 5-fold cross-validation
+
+### Feature Selection
+
+- 300-gene molecular signature proposed by **Pölönen et al. (2024)**.
+
+### Preprocessing
+
+The pipeline performs:
+
+1. Automatic gene alignment.
+2. Missing gene imputation (missing genes are assigned a value of 0).
+3. Z-score normalization using stored training parameters.
+
+### Output
+
+The classifier returns a probability distribution across **18 molecular T-ALL subtypes**.
+
+---
+
+## High-Fidelity Visualization
+
+### Clustering
+
+Samples are projected against the reference cohort using **t-SNE**, allowing visual assessment of subtype similarity and sample positioning.
+
+---
+
+# Deliverables
+
+## Summary Report
+
+An automatic PDF report named:
+
+```text
+T_ALL_classifier.pdf
+```
+
+is generated and includes:
+
+- Predicted subtype.
+- Probability for each molecular subtype.
+- Visualization of the sample within the reference cohort.
+
+## Model Files
+
+Pre-trained `.rds` models and inference scripts are included within the corresponding execution directories:
+
+- `single/`
+- `flag&batch/`
+
+---
+
+# Repository Structure
+
+```text
+T-REX/
+├── single/          # Single-sample processing mode
+└── flag&batch/      # Batch processing mode with uncertainty metrics
+```
+
+Both directories contain the necessary scripts and resources to process local RNA-seq count matrices.
+
+---
+
+# References
+
+- Pölönen et al. (2024). Molecular classification of T-cell Acute Lymphoblastic Leukemia.
+- Synapse Repository: **syn54032669**
+
